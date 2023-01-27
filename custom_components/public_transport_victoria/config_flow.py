@@ -70,7 +70,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data[CONF_ROUTE_TYPE] = user_input[CONF_ROUTE_TYPE]
                 self.data[CONF_ROUTE_TYPE_NAME] = self.route_types[user_input[CONF_ROUTE_TYPE]]
 
-                return await self.async_step_routes()
+                return await self.async_step_routes_suburb()
 
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -83,7 +83,36 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="route_types", data_schema=data_schema, errors=errors
         )
 
-    async def async_step_routes(self, user_input=None):
+    async def async_step_routes_suburb(self, user_input=None, user_input2=None):
+        """Handle the route types step."""
+        data_schema = vol.Schema({
+            vol.Required(CONF_ROUTE, default=next(iter(self.routes))): vol.In(self.routes),
+        })
+
+        errors = {}
+        if user_input is not None:
+            try:
+                self.directions = await self.connector.async_directions(
+                    user_input[CONF_ROUTE]
+                )
+
+                self.data[CONF_ROUTE] = user_input[CONF_ROUTE]
+                self.data[CONF_ROUTE_NAME] = self.routes[user_input[CONF_ROUTE]]
+
+                return await self.async_step_routes()
+
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+
+        # If there is no user input or there were errors, show the form again.
+        return self.async_show_form(
+            step_id="routes", data_schema=data_schema, errors=errors
+        )
+   
+    async def async_step_routes(self, user_input=None, user_input2=None):
         """Handle the route types step."""
         data_schema = vol.Schema({
             vol.Required(CONF_ROUTE, default=next(iter(self.routes))): vol.In(self.routes),
