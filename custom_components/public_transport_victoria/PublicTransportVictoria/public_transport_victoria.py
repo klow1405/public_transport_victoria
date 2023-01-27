@@ -14,8 +14,9 @@ DIRECTIONS_PATH = "/v3/directions/route/{}"
 MIN_TIME_BETWEEN_UPDATES = datetime.timedelta(minutes=2)
 MAX_RESULTS = 5
 ROUTE_TYPES_PATH = "/v3/route_types"
-ROUTES_PATH = "/v3/routes?route_types={}"
+ROUTES_PATH = "/v3/routes?route_types={}&route_name={}"
 STOPS_PATH = "/v3/stops/route/{}/route_type/{}"
+SEARCH_PATH = "/v3/search/{}?route_types="
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class Connector:
             self.route_type, self.stop, self.route, self.direction, MAX_RESULTS
         )
         await self.async_update()
-
+        
     async def async_route_types(self):
         """Get route types from Public Transport Victoria API."""
         url = build_URL(self.id, self.api_key, ROUTE_TYPES_PATH)
@@ -63,9 +64,10 @@ class Connector:
 
             return route_types
 
-    async def async_routes(self, route_type):
+    async def async_routes_suburb(self, route_type, route_name):
         """Get routes from Public Transport Victoria API."""
-        url = build_URL(self.id, self.api_key, ROUTES_PATH.format(route_type))
+        suburb_name = input("Please enter the departure/arrival suburb name:")
+        url = build_URL(self.id, self.api_key, SEARCH_PATH.format(suburb_name,route_type))
 
         async with aiohttp.ClientSession() as session:
             response = await session.get(url)
@@ -78,6 +80,26 @@ class Connector:
                 routes[r["route_id"]] = r["route_name"]
 
             self.route_type = route_type
+            self.route_name = route_name
+
+            return routes
+      
+    async def async_routes(self, route_type, route_name):
+        """Get routes from Public Transport Victoria API."""
+        url = build_URL(self.id, self.api_key, ROUTES_PATH.format(route_type, route_name))
+
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(url)
+
+        if response is not None and response.status == 200:
+            response = await response.json()
+            _LOGGER.debug(response)
+            routes = {}
+            for r in response["routes"]:
+                routes[r["route_id"]] = r["route_name"]
+
+            self.route_type = route_type
+            self.route_type = route_name
 
             return routes
 
